@@ -1,5 +1,9 @@
-from typing import Any
-from json import load
+from tomli import load
+from src.types import Any
 
-with open('.\\configs\\config.json', 'r', encoding='UTF-8') as file:
-    config: Any = load(file)
+async def get_configs(path: str = '.\\configs\\config.toml') -> dict[str, Any]:
+    try:
+        with open(path, 'rb') as toml_file:
+            return load(toml_file)
+    except Exception as exception:
+        raise RuntimeError(f'Error loading data from configuration: {exception}')

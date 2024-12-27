@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Form, UploadFile, File
-from typing import Any
-from src.logic import get_Kaiten_urls, create_card
-from src.utils import find_by_key_value
+from src.logic import fetch_kaiten_urls, create_card
+from src.types import Any
+from configs import get_configs
 
 app: FastAPI = FastAPI()
+
 
 @app.post('/api/tickets')
 async def create_ticket(
@@ -11,6 +12,6 @@ async def create_ticket(
     description: str = Form(...),
     files: list[UploadFile] = File(...)
 ):
-    Kaiten_urls: dict[str, Any] = get_Kaiten_urls()
-    return f'{find_by_key_value(Kaiten_urls["kaiten_urls"], "primary", True)["url"]}/ticket/' +\
-        f'{create_card(Kaiten_urls, title, description, files)}'
+    configs: dict[str, Any] = await get_configs()
+    Kaiten_urls: dict[str, Any] = await fetch_kaiten_urls(configs['settings']['default_endpoint'])
+    return await create_card(Kaiten_urls, title, description, files)

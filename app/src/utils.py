@@ -1,7 +1,7 @@
-from typing import Any
+from src.types import Any
 
 
-def find_by_key_value(dictionary: list[dict[str, Any]], key: str, value: Any) -> dict[str, Any]:
+async def find_by_key_value(dictionary: list[dict[str, Any]], key: str, value: Any) -> dict[str, Any]:
     result = None
     for Kaiten_dict in dictionary:
         result = Kaiten_dict
