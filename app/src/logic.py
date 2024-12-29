@@ -31,8 +31,10 @@ async def create_kaiten_card(kaiten_inf: dict[str, Any], title: str, description
             )
             response.raise_for_status()
             return await response.json()
+    except aiohttp.ClientResponseError as aiohttp_error:
+        raise HTTPException(status_code=aiohttp_error.status, detail=aiohttp_error.message)
     except Exception as exception:
-        raise HTTPException(status_code=500, detail=f'Error creating a Kaiten card: {exception}')
+        raise HTTPException(status_code=500, detail=f'Error creating a child ticket: {exception}')
 
 
 async def upload_file_to_kaiten(kaiten_inf: dict[str, Any], card_id: int, file: UploadFile):
@@ -45,6 +47,8 @@ async def upload_file_to_kaiten(kaiten_inf: dict[str, Any], card_id: int, file: 
                 files={'file': (file.filename, file.file.read())}
             )
             response.raise_for_status()
+    except httpx.HTTPError as httpx_error:
+        raise HTTPException(status_code=response.status, detail=httpx_error.message)
     except Exception as exception:
         raise HTTPException(
             status_code=500,
@@ -63,6 +67,8 @@ async def add_children_to_kaiten(kaiten_inf: dict[str, Any], card_id: int):
                 json={'card_id': card_id}
             )
             response.raise_for_status()
+    except aiohttp.ClientResponseError as aiohttp_error:
+        raise HTTPException(status_code=aiohttp_error.status, detail=aiohttp_error.message)
     except Exception as exception:
         raise HTTPException(status_code=500, detail=f'Error creating a child ticket: {exception}')
 
