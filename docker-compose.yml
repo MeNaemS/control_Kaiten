@@ -13,4 +13,4 @@ services:
 
 configs:
   config:
-    file: ./config.toml
+    file: ./configs/config.toml

@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Form, UploadFile, File
 from typing import Any
-from src import sending_requests
-from configs import get_configs
+from src import sending_requests, get_configs
 
 app: FastAPI = FastAPI()
 

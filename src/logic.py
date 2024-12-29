@@ -3,7 +3,7 @@ from typing import Any, Coroutine
 from src import find_by_key_value
 from fastapi import UploadFile
 import httpx
-from configs import fetch_configs_from_Kaiten
+from src import fetch_configs_from_Kaiten
 
 
 def handler(func: Coroutine) -> Coroutine:
@@ -59,11 +59,11 @@ async def create_child_card(
     card_id: str | int
 ):
     response = await session.post(
-        f'{kaiten['url']}/api/latest/cards/{card_id['id']}/children',
+        f'{kaiten['url']}/api/latest/cards/{card_id}/children',
         headers={
             'Authorization': f'Bearer {kaiten['token']}'
         },
-        json={'card_id': card_id['id']}
+        json={'card_id': card_id}
     )
     response.raise_for_status()
 
@@ -89,15 +89,10 @@ async def sending_requests(
                 await add_file(session, kaiten, card_id['id'], file)
 
             # Creating a child card
-            response = await session.post(
-                f'{kaiten['url']}/api/latest/cards/{card_id['id']}/children',
-                headers={
-                    'Authorization': f'Bearer {kaiten['token']}'
-                },
-                json={'card_id': card_id['id']}
-            )
-            response.raise_for_status()
-        return f'{await find_by_key_value(kaiten, "primary", True)}/ticket' +\
-            f'/{card_id["id"]}'
-    except httpx.HTTPError as httpx_error:
-        raise HTTPException(status_code=response.status_code, detail=str(httpx_error))
+            await create_child_card(session, kaiten, card_id['id'])
+        return f'{await find_by_key_value(kaiten, "primary", True)}/ticket/{card_id["id"]}'
+    except httpx.HTTPStatusError as httpx_error:
+        raise HTTPException(
+            status_code=httpx_error.response.status_code,
+            detail=httpx_error.response.text
+        )
