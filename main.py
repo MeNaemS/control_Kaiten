@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Form, UploadFile, File
-from src.logic import fetch_kaiten_urls, create_card
-from src.types import Any
+from typing import Any
+from src import sending_requests
 from configs import get_configs
 
 app: FastAPI = FastAPI()
@@ -13,5 +13,9 @@ async def create_ticket(
     files: list[UploadFile] = File(...)
 ):
     configs: dict[str, Any] = await get_configs()
-    Kaiten_urls: dict[str, Any] = await fetch_kaiten_urls(configs['settings']['default_endpoint'])
-    return await create_card(Kaiten_urls, title, description, files)
+    return await sending_requests(
+        config_url=configs['settings']['default_endpoint'],
+        title=title,
+        description=description,
+        files=files
+    )

@@ -1,4 +1,4 @@
-from src.types import Any
+from typing import Any
 
 
 async def find_by_key_value(dictionary: list[dict[str, Any]], key: str, value: Any) -> dict[str, Any]:
