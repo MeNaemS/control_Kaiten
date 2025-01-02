@@ -7,10 +7,24 @@ from src import fetch_configs_from_Kaiten
 
 
 def handler(func: Coroutine) -> Coroutine:
+    """ Error handler.  """
     async def wrapper(**kwargs) -> str:
+        """
+        Creating an asynchronous session with error handling.
+        **kwargs::
+            — config_url: str — the link from where the data should be parsed.
+            — title: str — name of cards.
+            — description: str — description of cards.
+            — files: list[UploadFile] — array of files.
+        """
         try:
             async with httpx.AsyncClient() as session:
                 return await func(session, **kwargs)
+        except httpx.HTTPStatusError as httpx_error:
+            raise HTTPException(
+                status_code=httpx_error.response.status_code,
+                detail=httpx_error.response.text
+            )
         except Exception as exception:
             raise HTTPException(status_code=500, detail=str(exception))
 
@@ -76,23 +90,17 @@ async def sending_requests(
     description: str,
     files: list[UploadFile]
 ) -> str:
-    try:
-        # Getting configs from url
-        kaiten_inf: dict[str, Any] = await fetch_configs_from_Kaiten(session, config_url)
+    # Getting configs from url
+    kaiten_inf: dict[str, Any] = await fetch_configs_from_Kaiten(session, config_url)
 
-        for kaiten in kaiten_inf['kaiten_urls']:
-            # Creating a card
-            card_id = await create_bug_card(session, kaiten, title, description)
+    for kaiten in kaiten_inf['kaiten_urls']:
+        # Creating a card
+        card_id = await create_bug_card(session, kaiten, title, description)
 
-            # Adding files to a card
-            for file in files:
-                await add_file(session, kaiten, card_id['id'], file)
+        # Adding files to a card
+        for file in files:
+            await add_file(session, kaiten, card_id['id'], file)
 
-            # Creating a child card
-            await create_child_card(session, kaiten, card_id['id'])
-        return f'{await find_by_key_value(kaiten, "primary", True)}/ticket/{card_id["id"]}'
-    except httpx.HTTPStatusError as httpx_error:
-        raise HTTPException(
-            status_code=httpx_error.response.status_code,
-            detail=httpx_error.response.text
-        )
+        # Creating a child card
+        await create_child_card(session, kaiten, card_id['id'])
+    return f'{await find_by_key_value(kaiten, "primary", True)}/ticket/{card_id["id"]}'
