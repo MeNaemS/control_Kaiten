@@ -13,7 +13,7 @@ async def create_ticket(
 ):
     configs: dict[str, Any] = await get_configs()
     return await sending_requests(
-        config_url=configs['settings']['default_endpoint'],
+        config=configs['settings'],
         title=title,
         description=description,
         files=files
