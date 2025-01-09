@@ -1,17 +1,27 @@
-from typing import Any
-from tomli import load
+from fastapi import HTTPException
+from typing import Any, Coroutine
+import tomli
+import json
 import httpx
 
 
+def config_handler(func: Coroutine) -> Coroutine:
+    async def wrapper(**kwargs) -> Any:
+        try:
+            return await func(**kwargs)
+        except Exception as exception:
+            raise HTTPException(status_code=500, detail=str(exception))
+
+    return wrapper
+
+
+@config_handler
 async def get_configs(path: str = './configs/config.toml') -> dict[str, Any]:
-    try:
-        with open(path, 'rb') as toml_file:
-            return load(toml_file)
-    except Exception as exception:
-        raise RuntimeError(f'Error loading data from configuration: {exception}')
+    with open(path, 'rb') as toml_file:
+        return tomli.load(toml_file)
 
 
-async def fetch_configs_from_Kaiten(session: httpx.AsyncClient, url: str) -> dict[str, Any]:
-    response = await session.get(url)
-    response.raise_for_status()
-    return response.json()
+@config_handler
+async def get_spaces_data(path: str = './configs/spaces.json') -> list[dict[str, Any]]:
+    with open(path, 'r') as file:
+        return json.load(file)

@@ -1,2 +1,7 @@
 [settings]
-default_endpoint = 'https://test.born-in-july.ru/api/settings'
+default_endpoint = 'https://stage.bytes2b.ru'
+fernet_key = 'PgKi9XHK7409xmwvhpzZQfuO2yekPQxtjmocjI1e6Fo='
+auth_url = 'https://auth.bytes2b.ru/realms/Dev/protocol/openid-connect/token'
+profile_url = 'https://auth.bytes2b.ru/realms/Dev/users/profile'
+clientId = 'tododdler-user-6899c608-f6c3-4bb7-954b-af6c8c28314e'
+clientSecret = 'gAAAAABngD32znZYAR-YMLFO45FVIJ68HZd-J3jXiYRf7aKcjgMPMa8V_fzTYOb5HZL3z_0p_Rxrix_b0KP8xrAQ7bO-IOLHxuw28ns9DDu6FlKcweSRjC18fapyci1FA3ylrbjnPTpa'

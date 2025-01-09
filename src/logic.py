@@ -1,9 +1,10 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from typing import Any, Coroutine
-from src import find_by_key_value
-from fastapi import UploadFile
+from cryptography.fernet import Fernet
+from random import choice
 import httpx
-from src import fetch_configs_from_Kaiten
+import json
+from src import get_spaces_data
 
 
 def handler(func: Coroutine) -> Coroutine:
@@ -12,7 +13,7 @@ def handler(func: Coroutine) -> Coroutine:
         """
         Creating an asynchronous session with error handling.
         **kwargs::
-            — config_url: str — the link from where the data should be parsed.
+            — config: dict[str, str] — the link from where the data should be parsed.
             — title: str — name of cards.
             — description: str — description of cards.
             — files: list[UploadFile] — array of files.
@@ -22,7 +23,7 @@ def handler(func: Coroutine) -> Coroutine:
                 return await func(session, **kwargs)
         except httpx.HTTPStatusError as httpx_error:
             raise HTTPException(
-                status_code=httpx_error.response.status_code,
+                status_code=400,
                 detail=httpx_error.response.text
             )
         except Exception as exception:
@@ -31,20 +32,145 @@ def handler(func: Coroutine) -> Coroutine:
     return wrapper
 
 
-async def create_bug_card(
+async def auth_token(
     session: httpx.AsyncClient,
-    kaiten_url: dict[str, Any],
-    title: str,
-    description: str
+    config: dict[str, str]
 ) -> dict[str, Any]:
-    response = await session.post(
-        f'{kaiten_url['url']}/api/latest/cards',
+    decoder: Fernet = Fernet(config['fernet_key'])
+    response: httpx.Response = await session.post(
+        config['auth_url'],
+        data={
+            'grant_type': 'client_credentials',
+            'client_id': config['clientId'],
+            'client_secret': decoder.decrypt(config['clientSecret'].encode()).decode()
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def delete_space(
+    session: httpx.AsyncClient,
+    token: str,
+    default_url: str,
+    entity_id: str
+):
+    response: httpx.Response = await session.delete(
+        f'{default_url}/api/space/{entity_id}',
         headers={
-            'Authorization': f'Bearer {kaiten_url['token']}'
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+    )
+    response.raise_for_status()
+
+
+def spaces(func: Coroutine) -> Coroutine:
+    async def wrapper(**kwargs) -> list[dict[str, Any]]:
+        """
+        Creating spaces.
+        **kwargs::
+            — session: httpx.AsyncClient — asynchronous session for sending requests
+            — token: str — token for access.
+            — default_url: str — default url to which requests are sent.
+            — titles: list[str] — array of names for spaces.
+            — path: str = './configs/spaces.json' — path to file with spaces.
+        """
+        path: str = kwargs.get('path', './configs/spaces.json')
+        spaces_data: Any = await get_spaces_data(path=path)
+        if spaces_data != []:
+            for space in spaces_data:
+                if space['title'] in kwargs['titles']:
+                    await delete_space(
+                        kwargs['session'], kwargs['token'], kwargs['default_url'], space['id']
+                    )
+        spaces_data: list[dict[str, Any]] = []
+        for title in kwargs['titles']:
+            spaces_data.append(
+                await func(kwargs['session'], kwargs['token'], kwargs['default_url'], title)
+            )
+        return spaces_data
+
+    return wrapper
+
+
+@spaces
+async def create_spaces(
+    session: httpx.AsyncClient,
+    token: str,
+    default_url: str,
+    title: str
+) -> dict[str, Any]:
+    response: httpx.Response = await session.post(
+        f'{default_url}/api/space',
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
         },
         json={
+            'title': title
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def save_spaces(
+    session: httpx.AsyncClient,
+    token: str,
+    default_url: str,
+):
+    response: httpx.Response = await session.get(
+        f'{default_url}/api/space',
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+    )
+    response.raise_for_status()
+    with open('./configs/spaces.json', 'w') as file:
+        json.dump(response.json(), file, indent=2)
+
+
+async def create_board(
+    session: httpx.AsyncClient,
+    token: str,
+    default_url: str,
+    space_id: int,
+    title: str = 'board'
+):
+    response: httpx.Response = await session.post(
+        f'{default_url}/api/board',
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        },
+        json={
+            'space_id': space_id,
+            'title': title
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def create_card(
+    session: httpx.AsyncClient,
+    token: str,
+    default_url: str,
+    board_id: int,
+    title: str,
+    description: str
+):
+    response: httpx.Response = await session.post(
+        f'{default_url}/api/card',
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        },
+        json={
+            'board_id': board_id,
             'title': title,
-            "board_id": kaiten_url['board_id'],
             'description': description
         }
     )
@@ -52,32 +178,36 @@ async def create_bug_card(
     return response.json()
 
 
-async def add_file(
+async def card_attachment(
     session: httpx.AsyncClient,
-    kaiten_url: dict[str, Any],
-    card_id: str | int,
+    token: str,
+    default_url: str,
+    card_id: int,
     file: UploadFile
 ):
-    response = await session.put(
-        f'{kaiten_url['url']}/api/latest/cards/{card_id}/files',
-        headers={'Authorization': f'Bearer {kaiten_url['token']}'},
-        json={'card_id': card_id},
-        files={'file': (file.filename, file.file.read())}
+    response: httpx.Response = await session.post(
+        f'{default_url}/api/card/{card_id}/attachment',
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        },
+        files={'file': {'filename': file.filename, 'file': file.file.read()}}
     )
     response.raise_for_status()
 
 
-async def create_child_card(
+async def card_children(
     session: httpx.AsyncClient,
-    kaiten: dict[str, Any],
-    card_id: str | int
+    token: str,
+    default_url: str,
+    card_id: int,
 ):
-    response = await session.post(
-        f'{kaiten['url']}/api/latest/cards/{card_id}/children',
+    response: httpx.Response = await session.post(
+        f'{default_url}/api/card/{card_id}/children',
         headers={
-            'Authorization': f'Bearer {kaiten['token']}'
-        },
-        json={'card_id': card_id}
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
     )
     response.raise_for_status()
 
@@ -85,22 +215,50 @@ async def create_child_card(
 @handler
 async def sending_requests(
     session: httpx.AsyncClient,
-    config_url: str,
+    config: dict[str, str],
     title: str,
     description: str,
     files: list[UploadFile]
 ) -> str:
-    # Getting configs from url
-    kaiten_inf: dict[str, Any] = await fetch_configs_from_Kaiten(session, config_url)
-
-    for kaiten in kaiten_inf['kaiten_urls']:
-        # Creating a card
-        card_id = await create_bug_card(session, kaiten, title, description)
-
-        # Adding files to a card
-        for file in files:
-            await add_file(session, kaiten, card_id['id'], file)
-
-        # Creating a child card
-        await create_child_card(session, kaiten, card_id['id'])
-    return f'{await find_by_key_value(kaiten, "primary", True)}/ticket/{card_id["id"]}'
+    token: dict[str, Any] = await auth_token(session, config)
+    spaces: list[dict[str, Any]] = await create_spaces(
+        session=session,
+        token=token['access_token'],
+        default_url=config['default_endpoint'],
+        titles=[f'space_{i}' for i in range(1, 3)]
+    )
+    await save_spaces(session, token['access_token'], config['default_endpoint'])
+    cards: list[dict[str, Any]] = []
+    for space_id in {space['id'] for space in spaces}:
+        board = create_board(
+            session,
+            token['access_token'],
+            config['default_endpoint'],
+            space_id
+        )
+        for _ in range(2):
+            cards.append(
+                await create_card(
+                    session,
+                    token['access_token'],
+                    config['default_endpoint'],
+                    board['id'],
+                    title,
+                    description
+                )
+            )
+            for file in files:
+                await card_attachment(
+                    session,
+                    token['access_token'],
+                    config['default_endpoint'],
+                    cards[-1]['id'],
+                    file
+                )
+            await card_children(
+                session,
+                token['access_token'],
+                config['default_endpoint'],
+                cards[-1]['id']
+            )
+    return f'{config['default_endpoint']}/ticket/{choice(cards)['id']}'
