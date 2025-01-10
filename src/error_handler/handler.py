@@ -19,7 +19,7 @@ def handler(func: Coroutine) -> Coroutine:
                 return await func(session, **kwargs)
         except httpx.HTTPStatusError as httpx_error:
             raise HTTPException(
-                status_code=400,
+                status_code=httpx_error.response.status_code,
                 detail={
                     'error': str(httpx_error),
                     'response': httpx_error.response.text
