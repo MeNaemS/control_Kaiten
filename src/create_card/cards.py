@@ -1,4 +1,5 @@
 from fastapi import UploadFile
+import base64
 import httpx
 
 
@@ -39,7 +40,7 @@ async def card_attachment(
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
         },
-        files={'file': {'filename': file.filename, 'file': file.file.read()}}
+        files={'file': {'filename': file.filename, 'file': base64.b64decode(file.file.read)}}
     )
     response.raise_for_status()
 
