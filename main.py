@@ -1,11 +1,12 @@
-from fastapi import FastAPI, Form, UploadFile, File
+from fastapi import FastAPI, Form, UploadFile, File, APIRouter
 from typing import Any
 from src import sending_requests, get_configs
 
 app: FastAPI = FastAPI()
+router: APIRouter = APIRouter()
 
 
-@app.post('/api/tickets')
+@router.post('/api/tickets', tags=['tickets'])
 async def create_ticket(
     title: str = Form(...),
     description: str = Form(...),
@@ -18,3 +19,6 @@ async def create_ticket(
         description=description,
         files=files
     )
+
+
+app.include_router(router)
