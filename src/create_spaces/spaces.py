@@ -1,6 +1,5 @@
 from typing import Coroutine, Any
 import httpx
-from src import get_spaces_data, spaces_to_json
 
 
 async def delete_space(
@@ -28,16 +27,12 @@ def spaces(func: Coroutine) -> Coroutine:
             — token: str — token for access.
             — default_url: str — default url to which requests are sent.
             — titles: list[str] — array of names for spaces.
-            — path: str = './configs/spaces.json' — path to file with spaces.
         """
-        path: str = kwargs.get('path', './configs/spaces.json')
-        spaces_data: Any = await get_spaces_data(path=path)
-        if spaces_data != []:
-            for space in spaces_data:
-                if space['title'] in kwargs['titles']:
-                    await delete_space(
-                        kwargs['session'], kwargs['token'], kwargs['default_url'], space['id']
-                    )
+        for space in await get_spaces(kwargs['session'], kwargs['token'], kwargs['default_url']):
+            if space['title'] in kwargs['titles']:
+                await delete_space(
+                    kwargs['session'], kwargs['token'], kwargs['default_url'], space['id']
+                )
         spaces_data: list[dict[str, Any]] = []
         for title in kwargs['titles']:
             spaces_data.append(
@@ -69,7 +64,7 @@ async def create_spaces(
     return response.json()
 
 
-async def save_spaces(
+async def get_spaces(
     session: httpx.AsyncClient,
     token: str,
     default_url: str,
@@ -82,4 +77,4 @@ async def save_spaces(
         }
     )
     response.raise_for_status()
-    await spaces_to_json(response_json=response.json())
+    return response.json()
