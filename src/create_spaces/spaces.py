@@ -1,7 +1,10 @@
 from typing import Coroutine, Any
+from asyncio import gather
 import httpx
+from src.error_handler import async_semaphore
 
 
+@async_semaphore
 async def delete_space(
     session: httpx.AsyncClient,
     token: str,
@@ -28,22 +31,32 @@ def spaces(func: Coroutine) -> Coroutine:
             — default_url: str — default url to which requests are sent.
             — titles: list[str] — array of names for spaces.
         """
-        for space in await get_spaces(kwargs['session'], kwargs['token'], kwargs['default_url']):
-            if space['title'] in kwargs['titles']:
-                await delete_space(
+        # Deleting spaces with an existing name
+        await gather(
+            *[
+                delete_space(
                     kwargs['session'], kwargs['token'], kwargs['default_url'], space['id']
-                )
-        spaces_data: list[dict[str, Any]] = []
-        for title in kwargs['titles']:
-            spaces_data.append(
-                await func(kwargs['session'], kwargs['token'], kwargs['default_url'], title)
-            )
-        return spaces_data
+                ) for space in await get_spaces(
+                    kwargs['session'],
+                    kwargs['token'],
+                    kwargs['default_url']
+                ) if space['title'] in kwargs['titles']
+            ]
+        )
+        # Creating Spaces
+        return await gather(
+            *[
+                func(
+                    kwargs['session'], kwargs['token'], kwargs['default_url'], title
+                ) for title in kwargs['titles']
+            ]
+        )
 
     return wrapper
 
 
 @spaces
+@async_semaphore
 async def create_spaces(
     session: httpx.AsyncClient,
     token: str,

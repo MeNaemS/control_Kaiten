@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Form, UploadFile, File, APIRouter, HTTPException
 from typing import Any
+from adaptix.load_error import LoadError
 from src import sending_requests, get_configs, retort, CardInfo
 import base64
 
@@ -12,7 +13,7 @@ async def create_ticket(
     title: str = Form(...),
     description: str = Form(...),
     files: list[UploadFile] = File(...)
-) -> str:
+):
     try:
         data = retort.load(
             {
@@ -36,7 +37,7 @@ async def create_ticket(
             description=data.description,
             files=data.files
         )
-    except Exception as exception:
+    except LoadError as exception:
         raise HTTPException(status_code=400, detail=str(exception))
 
 

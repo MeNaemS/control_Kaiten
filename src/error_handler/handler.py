@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from typing import Coroutine, Any
+from asyncio import Semaphore
 import httpx
 
 
@@ -25,8 +26,8 @@ def handler(func: Coroutine) -> Coroutine:
                     'response': httpx_error.response.text
                 }
             )
-        except Exception as exception:
-            raise HTTPException(status_code=500, detail=str(exception))
+        # except Exception as exception:
+        #     raise HTTPException(status_code=500, detail=str(exception))
 
     return wrapper
 
@@ -37,5 +38,14 @@ def config_handler(func: Coroutine) -> Coroutine:
             return await func(**kwargs)
         except Exception as exception:
             raise HTTPException(status_code=500, detail=str(exception))
+
+    return wrapper
+
+
+def async_semaphore(func: Coroutine) -> Coroutine:
+    async def wrapper(*args, max_requests: int = 8, **kwargs) -> Any:
+        semaphore: Semaphore = Semaphore(max_requests)
+        async with semaphore:
+            return await func(*args, **kwargs)
 
     return wrapper
