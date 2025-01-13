@@ -34,6 +34,7 @@ async def async_cards(
     default_endpoint: str,
     title: str,
     description: str,
+    type_card: str,
     files: list[UploadFile]
 ):
     card = await create_card(
@@ -42,7 +43,8 @@ async def async_cards(
         default_endpoint,
         board_id,
         title,
-        description
+        description,
+        type_card
     )
     await gather(
         *[
@@ -88,8 +90,9 @@ async def async_spaces(
                 default_endpoint,
                 title,
                 description,
+                type_card,
                 files
-            ) for _ in range(2)
+            ) for type_card in ['card', 'bug']
         ]
     )
     return cards

@@ -1,4 +1,6 @@
 from fastapi import UploadFile
+from PIL import Image
+from io import BytesIO
 import base64
 import httpx
 
@@ -9,7 +11,8 @@ async def create_card(
     default_url: str,
     board_id: int,
     title: str,
-    description: str
+    description: str,
+    type_card: str
 ):
     response: httpx.Response = await session.post(
         f'{default_url}/api/card',
@@ -20,7 +23,8 @@ async def create_card(
         json={
             'board_id': board_id,
             'title': title,
-            'description': description
+            'description': description,
+            'type': type_card
         }
     )
     response.raise_for_status()
@@ -34,13 +38,14 @@ async def card_attachment(
     card_id: int,
     file: UploadFile
 ):
+    
     response: httpx.Response = await session.post(
         f'{default_url}/api/card/{card_id}/attachment',
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
         },
-        files={'file': {'filename': file.filename, 'file': base64.b64decode(file.file.read)}}
+        data=file.file.read
     )
     response.raise_for_status()
 

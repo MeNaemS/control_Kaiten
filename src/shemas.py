@@ -7,7 +7,7 @@ retort: Retort = Retort()
 
 @dataclass
 class FileContent:
-    read: bytearray
+    read: bytes
 
 
 @dataclass
